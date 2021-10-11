@@ -282,3 +282,36 @@ axios 库本身内置了一部分 config，比如通用的 http 首部字段:Acc
 ![lib/axios.js](./imgs/axios_begin.png)
 
 看上述代码很明显的，用 CJS 模块语法导出了一个 axios 对象，为了兼容 TypeScript，还具名 default 做了兼容。我们看得出来，axios 对象上是挂载了 all、spread 等方法，也挂载了 CancelToken、Cancel、isCancel 这些属性，为用户提供了快捷的方法使用（其实它们都是函数的类方法）
+
+我们在使用 axios 时或许都有点疑问？为什么 axios 的使用如此灵活？可以直接调用 axios 函数、可以创建实例、甚至能通过 axios 调用方法来，下面我们直接看看 createInstance 这个方法，为了方便，我直接拷贝过来：
+
+```Javascript
+var defaults = require('./defaults');
+
+/**
+ * Create an instance of Axios
+ *
+ * @param {Object} defaultConfig The default config for the instance
+ * @return {Axios} A new instance of Axios
+ */
+function createInstance(defaultConfig) {
+  var context = new Axios(defaultConfig);
+  var instance = bind(Axios.prototype.request, context);
+
+  // Copy axios.prototype to instance
+  utils.extend(instance, Axios.prototype, context);
+
+  // Copy context to instance
+  utils.extend(instance, context);
+
+  // Factory for creating new instances
+  instance.create = function create(instanceConfig) {
+    return createInstance(mergeConfig(defaultConfig, instanceConfig));
+  };
+
+  return instance;
+}
+// Create the default instance to be exported
+var axios = createInstance(defaults);
+
+```
