@@ -313,5 +313,218 @@ function createInstance(defaultConfig) {
 }
 // Create the default instance to be exported
 var axios = createInstance(defaults);
-
 ```
+
+导出的 axios 其实是调用 createInstance() 返回的结果，参数是库内置的默认参数。我们看看 createInstance 函数里干了些啥：
+
+- 1、用默认参数实例化一个 Axios 对象
+- 2、通过 bind 方法对 Axios 的原型方法 request 绑定步骤 1 的实例对象作为其执行上下文并返回一个新的函数(划重点)，这个新函数也是 createInstance 的返回结果，这也是为啥能通过 axios()如此调用的原因，因为 axios 本来就是一个函数（本质上是 Axios.prototype.request,只是绑定了 Axios 实例），为了方便描述，我们将其成为包装方法。
+- 3、通过 extend 方法来扩展 Axios 的原型方法到包装方法上去，相当于函数对象的类方法，这样就可以通过类似 axios.get()这样来调用了
+- 4、往包装函数添加 create 的工厂函数，接收用户定义的配置参数，返回的还是 createInstance 的结果，这样就可以通过 axios.create()方法来创建实例对象了
+
+### 核心
+
+我们看看 lib/core 下的 Axios：
+这个文件比较简单，就是通过原型继承的方式来定义 Axios 类，包含两个实例属性 defaults 和 interceptors，分别用来保存配置和拦截器
+还有定义了一系列的原型方法，
+
+```Javascript
+    //下面非源码，只是方便罗列出来
+    Axios.prototype={
+        request:function,
+        get:function,
+        post:function,
+        put:function,
+        ...
+    }
+```
+
+其中最最重要的一个原型方法就要数 request 了,上面说的入口文件返回的包装函数实质上就是这个 request 函数,而且以 Http 动作衍生出来的其他原型方法就是以 request 为基础，只是对 url、data 做了一些包装：
+
+![Axios原型方法之请求方法](./imgs/Axios_methods.png)
+
+```Javascript
+//接收额外的自定义配置参数
+Axios.prototype.request = function request(config) {
+  /*eslint no-param-reassign:0*/
+  // Allow for axios('example/url'[, config]) a la fetch API
+  //兼容第一个参数为url的写法
+  if (typeof config === 'string') {
+    config = arguments[1] || {};
+    config.url = arguments[0];
+  } else {
+    config = config || {};
+  }
+  //合并自定义参数和默认参数
+  config = mergeConfig(this.defaults, config);
+
+  // Set config.method
+  if (config.method) {
+    config.method = config.method.toLowerCase();
+  } else if (this.defaults.method) {
+    config.method = this.defaults.method.toLowerCase();
+  } else {
+    config.method = 'get';
+  }
+
+  var transitional = config.transitional;
+
+  if (transitional !== undefined) {
+    validator.assertOptions(transitional, {
+      silentJSONParsing: validators.transitional(validators.boolean, '1.0.0'),
+      forcedJSONParsing: validators.transitional(validators.boolean, '1.0.0'),
+      clarifyTimeoutError: validators.transitional(validators.boolean, '1.0.0')
+    }, false);
+  }
+
+  // filter out skipped interceptors
+  var requestInterceptorChain = [];
+  var synchronousRequestInterceptors = true;
+  this.interceptors.request.forEach(function unshiftRequestInterceptors(interceptor) {
+    if (typeof interceptor.runWhen === 'function' && interceptor.runWhen(config) === false) {
+      return;
+    }
+
+    synchronousRequestInterceptors = synchronousRequestInterceptors && interceptor.synchronous;
+
+    requestInterceptorChain.unshift(interceptor.fulfilled, interceptor.rejected);
+  });
+
+  var responseInterceptorChain = [];
+  this.interceptors.response.forEach(function pushResponseInterceptors(interceptor) {
+    responseInterceptorChain.push(interceptor.fulfilled, interceptor.rejected);
+  });
+
+  var promise;
+
+  if (!synchronousRequestInterceptors) {
+    var chain = [dispatchRequest, undefined];
+
+    Array.prototype.unshift.apply(chain, requestInterceptorChain);
+    chain = chain.concat(responseInterceptorChain);
+
+    promise = Promise.resolve(config);
+    while (chain.length) {
+      promise = promise.then(chain.shift(), chain.shift());
+    }
+
+    return promise;
+  }
+
+
+  var newConfig = config;
+  while (requestInterceptorChain.length) {
+    var onFulfilled = requestInterceptorChain.shift();
+    var onRejected = requestInterceptorChain.shift();
+    try {
+      newConfig = onFulfilled(newConfig);
+    } catch (error) {
+      onRejected(error);
+      break;
+    }
+  }
+
+  try {
+    promise = dispatchRequest(newConfig);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+
+  while (responseInterceptorChain.length) {
+    promise = promise.then(responseInterceptorChain.shift(), responseInterceptorChain.shift());
+  }
+
+  return promise;
+};
+```
+
+这个方法主要干了以下事情：
+
+- 1、处理单独传入 url 的情况，并对传入的配置 config 与 defaults 默认配置做合并，
+  并且对请求方法做处理
+
+```Javascript
+  // 如果第一个参数是字符串，默认取做url
+  if (typeof config === 'string') {
+    config = arguments[1] || {};
+    config.url = arguments[0];
+  } else {
+    config = config || {};
+  }
+
+   config= mergeConfig(this.defaults, config);
+     // Set config.method
+  if (config.method) {
+    config.method = config.method.toLowerCase();
+  } else if (this.defaults.method) {
+    config.method = this.defaults.method.toLowerCase();
+  } else {
+    config.method = 'get';
+  }
+```
+
+- 2、处理请求、响应拦截器函数，这里真的拦截器的 sync 分别做了处理，异步用 promise，很巧妙，可以重点学习一下。
+
+拦截器函数异步，用 PromiseAPI 来处理异步回调
+
+```Javascript
+    //相当巧妙
+    if (!synchronousRequestInterceptors) {
+        //这里注意，下面在promise.then时传的resolve和reject两个函数，所以这里
+        //也把undefined加入占位
+        var chain = [dispatchRequest, undefined];
+        //将拦截器函数依次放入数组保存，顺序为：请求拦截器函数、[dispatchRequest,undefined]、响应拦截器函数
+        Array.prototype.unshift.apply(chain, requestInterceptorChain);
+        chain = chain.concat(responseInterceptorChain);
+        //配置参数依次传入，链式传递处理
+        promise = Promise.resolve(config);
+        while (chain.length) {
+        promise = promise.then(chain.shift(), chain.shift());
+        }
+        return promise;
+   }
+```
+
+同步就简单多了
+
+```Javascript
+  var newConfig = config;
+  while (requestInterceptorChain.length) {
+    var onFulfilled = requestInterceptorChain.shift();
+    var onRejected = requestInterceptorChain.shift();
+    try {
+      newConfig = onFulfilled(newConfig);
+    } catch (error) {
+      onRejected(error);
+      break;
+    }
+  }
+
+  try {
+    promise = dispatchRequest(newConfig);
+  } catch (error) {
+    return Promise.reject(error);
+  }
+
+  while (responseInterceptorChain.length) {
+    promise = promise.then(responseInterceptorChain.shift(), responseInterceptorChain.shift());
+  }
+
+  return promise;
+```
+
+分别调用请求拦截器函数(传入相关配置并作为结果返回)、调用 dispatchRequest、响应拦截器函数
+
+上述的 promise 处理利用了 promise.then 方法返回的也是 promise，故可以进行链式调用
+
+可以看出 request 方法中最重要的就是调用了 dispatchRequest 函数，根据宿主环境不同进行请求分发，下面我们来看看 dispatchRequest 函数具体干了些什么：
+![dispatchRequest方法](./imgs/dispatchRequest.png)
+通过上面的折行代码，我们可以知道在 dispatchRequest 方法中，主要做了以下事情：
+
+- 1、根据 transformRequest 处理请求配置参数
+- 2、处理配置参数 config 中的 Headers，并打平 headers 里的 common、各类请求方法的首部到 config.headers
+- 3、根据自定义的 adapter 或默认的 adapter 发起请求，并在接下来的回调 then 方法调用 transformResponse 处理响应数据
+
+### 兼容性问题
+
+axios 库依赖原生的 Promise 库，如果版本比较低的浏览器比如 IE6，请用 [polyfill](https://github.com/stefanpenner/es6-promise)

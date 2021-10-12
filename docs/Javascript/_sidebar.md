@@ -1,0 +1,2 @@
+- Javascript
+  - [数据类型](Javascript/data_type.md)
