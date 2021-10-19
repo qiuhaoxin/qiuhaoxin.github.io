@@ -45,3 +45,67 @@ Vue Cli 工具用了几个挺重要的库，先做个简单介绍：
   ```
 
 - 3、commander
+
+- 4、execa
+  这个库主要是用来执行命令脚本的，是对 child_process 方法的提升：
+- 1、支持 Promise 接口
+- 2、从输出中剥离最后的换行符，不用显示调用 stdout.trim()
+- 3、支持 shebang 二进制文件跨平台
+- 4、window 系统的支持
+- 5、更大的 buffer size，100MB 而不是 200kb
+- 6、
+
+#### Vue CLI 提供了多个指令
+
+- 1、create
+  语法：
+
+```Javascript
+   vue create projectName [options]
+```
+
+创建一个新的 vue 项目，并附带一些选项来配置项目
+
+- 2、add
+  在项目里添加一个插件，并调用插件的 generator
+
+- 3、invoke 方法
+  在项目里触发插件的 generator 方法
+
+- 4、inspect 方法
+  查看项目的 webpack 配置项，这个配置是基于@vue/cli-plugin-service 插件的
+
+- 5、serve 方法
+  相当于调用 npm run serve
+
+- 6、build 方法
+  想当于调用 npm run build
+
+- 7、ui 启动 vue cli 的图形管理界面
+
+- 8、config
+  查看和修改配置
+
+- 9、init 根据远程模板来初始化项目 依赖@vue/cli-init
+
+- 10、upgrade 升级更新 vue cli service/plugins
+
+我们下面主要对几个重要的指令的源码进行阅读：
+
+每个指令都有选项，作者基于 commander 这个库来处理指令和选项
+
+```Javascript
+    const program = require('commander')
+    program
+    .command('directive [options]')
+    .option('xxx <options>')
+    .option('xxx [options]')
+    .action((value,options)=>{
+      // do something
+    })
+    program.parse(process.argv)
+```
+
+上面是 commander 的语法，定义了一个指令和指令对应的参数项，最后调用 program.parse(process.argv) 来处理参数，并在 action 的回调里传入参数。
+
+#### create 指令源码阅读
