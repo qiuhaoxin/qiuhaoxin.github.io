@@ -104,3 +104,38 @@ Webpack 是一个打包模块化 Javascript 的工具，构建时，它会从配
 从 Webpack2 开始，已经内置了对 ES6、CommonJS、AMD 模块化语句的支持。
 
 ### Webpack 使用
+
+- 、通过命令行 node_modules/.bin/webpack --config webpack.config.js
+
+- 、通过 Npm Scripts
+
+- 、通过 Node API 方式调用：
+
+```Javascript
+    const webpack=require('webpack');
+    webpack({
+        //webpack config
+    },(err,stats)=>{
+        if(err || stats.hasErrors()){
+            //构建出错
+        }
+    })
+```
+
+上面代码只能构建一次，可以用监听模式来构建：
+
+```Javascript
+    const webpack=require('webpack');
+    const webpackConfig=require('./webpack.config.js');
+    const compiler=webpack(webpackConfig);
+    const watching=compiler.watch({
+        polling:300,
+
+        aggregateTimeout:1000,
+    },(err,stats)=>{
+
+    })
+    watching.close(()=>{
+
+    })
+```
