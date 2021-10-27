@@ -113,3 +113,5 @@ config:用于添加命令行的环境变量
     //可以配置
     npm config set foo.port=8081
 ```
+
+type:用 webpack 构建时，有时会指定 type 为 module 或 commonjs，webpack 会启动语法一致性检查，当为 module 时，模块化语法不允许用 CommonJS(不能用 exports、module.exports 或 require)，后缀命名不能是.cjs 而是.mjs 或.js。当为 commonjs 时不能用 ESM 语法（不能用 import、export）另外 webpack2.0 时已经原生支持 import 和 export 了（不用引用 babel 也能处理），但 ES6+的语法还是需要 babel 来处理
