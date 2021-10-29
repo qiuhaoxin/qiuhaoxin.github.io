@@ -97,6 +97,14 @@ Webpack 是一个打包模块化 Javascript 的工具，在 Webpack 里一切文
 - 社区庞大活跃
   缺点：只能用于采用模块化开发
 
+### 名词解析
+
+- 1、module、chunk、bundle
+
+- 2、hash、chunkhash、contenthash
+
+- 3、
+
 ### Webpack 工作原理
 
 Webpack 是一个打包模块化 Javascript 的工具，构建时，它会从配置文件的 entry 入口文件出发，识别模块中的模块导入语句(import\require),递归的寻找入口文件的所有依赖，把入口文件和其所有依赖打包到一个单独的文件中，最后输出

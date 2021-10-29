@@ -129,7 +129,7 @@ service.run(command, args, rawArgv).catch(err => {
 })
 ```
 
-看到入口就做了以下事情：
+看到入口文件就做了以下事情：
 
 - 校验 node 的版本
 - 实例化 Service 对象
@@ -202,6 +202,7 @@ service.run(command, args, rawArgv).catch(err => {
             ? builtInPlugins.concat(inlinePlugins)
             : inlinePlugins
         } else {
+        //把配置文件中符合vue的插件提取出来，并加载生成 {id,apply}
         const projectPlugins = Object.keys(this.pkg.devDependencies || {})
             .concat(Object.keys(this.pkg.dependencies || {}))
             .filter(isPlugin)
@@ -225,7 +226,7 @@ service.run(command, args, rawArgv).catch(err => {
         plugins = builtInPlugins.concat(projectPlugins)
         }
 
-        // Local plugins
+        // Local plugins   本地插件
         if (this.pkg.vuePlugins && this.pkg.vuePlugins.service) {
         const files = this.pkg.vuePlugins.service
         if (!Array.isArray(files)) {
@@ -242,5 +243,62 @@ service.run(command, args, rawArgv).catch(err => {
         debug('vue:plugins-ordered')(orderedPlugins)
 
         return orderedPlugins
+    }
+```
+
+实现了内置插件、配置符合 vue 格式插件和本地配置的插件的提取，实现了 modes 的初始化。
+
+#### run 方法
+
+执行 service.run()
+
+```Javascript
+async run (name, args = {}, rawArgv = []) {
+    // resolve mode
+    // prioritize inline --mode
+    // fallback to resolved default modes from plugins or development if --watch is defined
+    const mode = args.mode || (name === 'build' && args.watch ? 'development' : this.modes[name])
+
+    // --skip-plugins arg may have plugins that should be skipped during init()
+    this.setPluginsToSkip(args)
+
+    // load env variables, load user config, apply plugins
+    await this.init(mode)
+
+    args._ = args._ || []
+    let command = this.commands[name]
+    if (!command && name) {
+      error(`command "${name}" does not exist.`)
+      process.exit(1)
+    }
+    if (!command || args.help || args.h) {
+      command = this.commands.help
+    } else {
+      args._.shift() // remove command itself
+      rawArgv.shift()
+    }
+    const { fn } = command
+    return fn(args, rawArgv)
+  }
+```
+
+run 方法确定了 mode，根据参数提取要跳过的插件，根据用户配置的 vue.config.js 和 env 文件来确定 webpack 配置的参数、chainFn 等。最后在
+this.commands 提取相关的命令函数和参数，执行。
+
+当 command name 为 serve 时执行 ./lib/commands/serve.js 的 serve 函数,首先通过 chainWebpack 添加修改 mode=development 下的参数设置 devtool 为 eval-cheap-module-source-map。接着执行 api.resolveWebpackConfig()获取 webpack 的配置。
+
+#### 小技巧总结及借鉴
+
+- 1、判断是 Promise
+
+```Javascript
+    const isPromise=(p)=> p && typeof p.then=='function'
+```
+
+- 2、判断网页是否运行在容器内：
+
+```Javascript
+    function checkInContainer(){
+
     }
 ```
