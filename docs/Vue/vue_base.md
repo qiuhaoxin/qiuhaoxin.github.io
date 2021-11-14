@@ -77,3 +77,202 @@
 
 - 1、key
   key 的特殊 attribute 主要用在 Vue 的虚拟 DOM 算法，在新旧 nodes 对比时辨识 VNodes。如果不使用 key，Vue 会使用一种最大限度减少动态元素并且尽可能的尝试就地修改/复用相同类型元素的算法。而使用 key 时，它会基于 key 的变化重新排列元素顺序，并且会移除 key 不存在的元素。
+
+  它也可以用于强制替换元素/组件而不是重复使用它。当你遇到如下场景时它可能会很有用:
+
+```Javascript
+
+    1、完整地触发组件的生命周期钩子
+    2、触发过渡
+
+    例子：
+    <transition>
+        <span :key="text" >{{ text }}</span>
+    </transition>
+
+```
+
+- 2、ref
+  ref 被用来给元素或子组件注册引用信息。引用信息将会注册在父组件的 $refs 对象上
+关于 ref 注册时间的重要说明：因为 ref 本身是作为渲染结果被创建的，在初始渲染的时候你不能访问它们 - 它们还不存在！$refs 也不是响应式的，因此你不应该试图用它在模板中做数据绑定
+
+- 3、is
+
+### 内置组件
+
+- 1、component
+  渲染一个“元组件”为动态组件。依 is 的值，来决定哪个组件被渲染。
+
+props:
+is:
+
+- 2、transition
+
+- 3、transition-group
+
+- 4、slot
+
+- 5、keep-alive
+
+### 组件选项-数据
+
+- 1、data
+
+- 2、props
+
+- 3、computed
+  计算属性将被混入到 Vue 实例中。所有 getter 和 setter 的 this 上下文自动地绑定为 Vue 实例。
+
+注意如果你为一个计算属性使用了箭头函数，则 this 不会指向这个组件的实例，不过你仍然可以将其实例作为函数的第一个参数来访问。
+
+```Javascript
+    computed(){
+        aDouble: vm => vm.a * 2
+    }
+```
+
+计算属性的结果会被缓存，除非依赖的响应式 property 变化才会重新计算。注意，如果某个依赖 (比如非响应式 property) 在该实例范畴之外，则计算属性是不会被更新的。
+
+- 4、methods
+  methods 将被混入到 Vue 实例中。可以直接通过 VM 实例访问这些方法，或者在指令表达式中使用。方法中的 this 自动绑定为 Vue 实例。
+  所以也不要使用箭头函数
+- 5、watch
+  一个对象，键是需要观察的表达式，值是对应回调函数。值也可以是方法名，或者包含选项的对象。Vue 实例将会在实例化时调用 $watch()，遍历 watch 对象的每一个 property。
+
+```Javascript
+var vm = new Vue({
+  data: {
+    a: 1,
+    b: 2,
+    c: 3,
+    d: 4,
+    e: {
+      f: {
+        g: 5
+      }
+    }
+  },
+  watch: {
+    a: function (val, oldVal) {
+      console.log('new: %s, old: %s', val, oldVal)
+    },
+    // 方法名
+    b: 'someMethod',
+    // 该回调会在任何被侦听的对象的 property 改变时被调用，不论其被嵌套多深
+    c: {
+      handler: function (val, oldVal) { /* ... */ },
+      deep: true
+    },
+    // 该回调将会在侦听开始之后被立即调用
+    d: {
+      handler: 'someMethod',
+      immediate: true
+    },
+    // 你可以传入回调数组，它们会被逐一调用
+    e: [
+      'handle1',
+      function handle2 (val, oldVal) { /* ... */ },
+      {
+        handler: function handle3 (val, oldVal) { /* ... */ },
+        /* ... */
+      }
+    ],
+    // watch vm.e.f's value: {g: 5}
+    'e.f': function (val, oldVal) { /* ... */ }
+  }
+})
+vm.a = 2 // => new: 2, old: 1
+```
+
+<strong>注意，不应该使用箭头函数来定义 watcher 函数 </strong>
+
+### 组件选项-dom
+
+- 1、el 只在用 new 创建实例时生效
+  提供一个在页面上已存在的 DOM 元素作为 Vue 实例的挂载目标。可以是 CSS 选择器，也可以是一个 HTMLElement 实例。
+
+在实例挂载之后，元素可以用 vm.$el 访问。
+
+如果在实例化时存在这个选项，实例将立即进入编译过程，否则，需要显式调用 vm.$mount() 手动开启编译。
+
+如果 render 函数和 template property 都不存在，挂载 DOM 元素的 HTML 会被提取出来用作模板，此时，必须使用 Runtime + Compiler 构建的 Vue 库。
+
+- 2、template
+  一个字符串模板作为 Vue 实例的标识使用。模板将会替换挂载的元素。挂载元素的内容都将被忽略，除非模板的内容有分发插槽。
+
+```html
+如果值以 # 开始，则它将被用作选择符，并使用匹配元素的 innerHTML 作为模板。常用的技巧是用 <script type="x-template"> 包含模板
+```
+
+- 3、render
+  字符串模板的代替方案，允许你发挥 JavaScript 最大的编程能力。该渲染函数接收一个 createElement 方法作为第一个参数用来创建 VNode。
+
+如果组件是一个函数组件，渲染函数还会接收一个额外的 context 参数，为没有实例的函数组件提供上下文信息。
+注：如果值以 # 开始，则它将被用作选择符，并使用匹配元素的 innerHTML 作为模板。常用的技巧是用 <script type="x-template"> 包含模板
+
+- 4、renderError
+  只在开发者环境下工作
+  当 render 函数遭遇错误时，提供另外一种渲染输出。其错误将会作为第二个参数传递到 renderError。这个功能配合 hot-reload 非常实用。
+  ```javascript
+  new Vue({
+    render(h) {
+      throw new Error('error!');
+    },
+    renderError(h, err) {
+      return h('span', {}, err.stack);
+    },
+  }).$mount('#app');
+  ```
+
+### 组件选项-生命周期钩子
+
+- 1、beforeCreate
+  在实例初始化之后,进行数据侦听和事件/侦听器的配置之前同步调用。
+- 2、created
+
+在实例创建完成后被立即同步调用。在这一步中，实例已完成对选项的处理，意味着以下内容已被配置完毕：数据侦听、计算属性、方法、事件/侦听器的回调函数。然而，挂载阶段还没开始，且 $el property 目前尚不可用。
+
+- 3、beforeMount
+  在挂载开始之前被调用：相关的 render 函数首次被调用。
+  该钩子在服务器端渲染期间不被调用。
+- 4、mounted
+  实例被挂载后调用，这时 el 被新创建的 vm.$el 替换了。如果根实例挂载到了一个文档内的元素上，当 mounted 被调用时 vm.$el 也在文档内。
+
+注意 mounted 不会保证所有的子组件也都被挂载完成。如果你希望等到整个视图都渲染完毕再执行某些操作，可以在 mounted 内部使用 vm.$nextTick：
+
+```Javascript
+mounted: function () {
+  this.$nextTick(function () {
+        // 仅在整个视图都被渲染之后才会运行的代码
+    })
+  }
+```
+
+该钩子在服务器端渲染期间不被调用。
+
+- 5、beforeUpdate
+  在数据发生改变后，DOM 被更新之前被调用。这里适合在现有 DOM 将要被更新之前访问它，比如移除手动添加的事件监听器。
+
+该钩子在服务器端渲染期间不被调用，因为只有初次渲染会在服务器端进行。
+
+- 6、updated
+  在数据更改导致的虚拟 DOM 重新渲染和更新完毕之后被调用。
+
+当这个钩子被调用时，组件 DOM 已经更新，所以你现在可以执行依赖于 DOM 的操作。然而在大多数情况下，你应该避免在此期间更改状态。如果要相应状态改变，通常最好使用计算属性或 watcher 取而代之。
+
+注意，updated 不会保证所有的子组件也都被重新渲染完毕。如果你希望等到整个视图都渲染完毕，可以在 updated 里使用 vm.$nextTick：
+
+```Javascript
+    updated(){
+        this.$nextTicket(function(){
+            //整个视图更新后的操作
+        })
+    }
+```
+
+该钩子在服务器端渲染期间不被调用。
+
+- 7、activated
+  被 keep-alive 缓存的组件激活时调用。
+
+该钩子在服务器端渲染期间不被调用。
