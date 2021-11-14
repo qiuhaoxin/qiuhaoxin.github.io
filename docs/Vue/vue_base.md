@@ -276,3 +276,76 @@ mounted: function () {
   被 keep-alive 缓存的组件激活时调用。
 
 该钩子在服务器端渲染期间不被调用。
+
+- 8、deactivated
+  被 keep-alive 缓存的组件失活时调用。
+
+该钩子在服务器端渲染期间不被调用。
+
+- 9、beforeDestroy
+  实例销毁之前调用。在这一步，实例仍然完全可用。
+
+该钩子在服务器端渲染期间不被调用。
+
+- 10、destroyed
+  实例销毁后调用。该钩子被调用后，对应 Vue 实例的所有指令都被解绑，所有的事件监听器被移除，所有的子实例也都被销毁。
+
+该钩子在服务器端渲染期间不被调用。
+
+- 11、errorCaptured
+  在捕获一个来自后代组件的错误时被调用。此钩子会收到三个参数：错误对象、发生错误的组件实例以及一个包含错误来源信息的字符串。此钩子可以返回 false 以阻止该错误继续向上传播。
+
+  错误传播的规则：
+  1、默认情况下，如果全局的 config.errorHandler 被定义，所有的错误仍会发送它，因此这些错误仍然会向单一的分析服务的地方进行汇报。
+
+2、如果一个组件的 inheritance chain (继承链)或 parent chain (父链)中存在多个 errorCaptured 钩子，则它们将会被相同的错误逐个唤起。
+
+3、如果此 errorCaptured 钩子自身抛出了一个错误，则这个新错误和原本被捕获的错误都会发送给全局的 config.errorHandler。
+
+4、一个 errorCaptured 钩子能够返回 false 以阻止错误继续向上传播。本质上是说“这个错误已经被搞定了且应该被忽略”。它会阻止其它任何会被这个错误唤起的 errorCaptured 钩子和全局的 config.errorHandler。
+
+### 组件选项- 资源
+
+- 1、directives
+
+- 2、filters
+
+- 3、components
+
+### 组件选项- 租户
+
+- 1、parent
+  指定已创建的实例之父实例，在两者之间建立父子关系。子实例可以用 this.$parent 访问父实例，子实例被推入父实例的 $children 数组中。
+
+- 2、mixins
+
+mixins 选项接收一个混入对象的数组。这些混入对象可以像正常的实例对象一样包含实例选项，这些选项将会被合并到最终的选项中，使用的是和 Vue.extend() 一样的选项合并逻辑。也就是说，如果你的混入包含一个 created 钩子，而创建组件本身也有一个，那么两个函数都会被调用。
+
+Mixin 钩子按照传入顺序依次调用，并在调用组件自身的钩子之前被调用。
+
+```
+    var mixin = {
+        created: function () { console.log(1) }
+    }
+    var vm = new Vue({
+        created: function () { console.log(2) },
+        mixins: [mixin]
+    })
+    // => 1
+    // => 2
+```
+
+- 3、extends
+  允许声明扩展另一个组件 (可以是一个简单的选项对象或构造函数)，而无需使用 Vue.extend。这主要是为了便于扩展单文件组件。
+
+这和 mixins 类似。
+
+```Javascript
+    var CompA = { ... }
+
+    // 在没有调用 `Vue.extend` 时候继承 CompA
+    var CompB = {
+    extends: CompA,
+    ...
+    }
+```
